@@ -1,38 +1,53 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 
 int main()
 {
-    int i;
-    pid_t pid;
+    pid_t pid1, pid2, zombie;
 
-    for(i = 1; i <= 3; i++)
+    // Create Child 1
+    pid1 = fork();
+    if (pid1 == 0)
     {
-        pid = fork();
-
-        if(pid == 0)
-        {
-            printf("Child %d\n", i);
-            printf("PID  : %d\n", getpid());
-            printf("PPID : %d\n", getppid());
-
-            sleep(2);
-
-            printf("Child %d completed.\n\n", i);
-            exit(0);
-        }
+        printf("Child 1: PID = %d, PPID = %d\n", getpid(), getppid());
+        exit(0);
     }
 
-    // Parent waits for all children
-    for(i = 1; i <= 3; i++)
+    // Create Child 2
+    pid2 = fork();
+    if (pid2 == 0)
     {
-        wait(NULL);
+        printf("Child 2: PID = %d, PPID = %d\n", getpid(), getppid());
+        exit(0);
     }
 
-    printf("All child processes completed.\n");
+    // Synchronization using wait()
+    wait(NULL);
+    printf("One child completed using wait().\n");
+
+    // Synchronization using waitpid()
+    waitpid(pid2, NULL, 0);
+    printf("Second child completed using waitpid().\n");
+
+    // Zombie process demonstration
+    zombie = fork();
+
+    if (zombie == 0)
+    {
+        printf("Zombie Child (PID = %d) exiting...\n", getpid());
+        exit(0);
+    }
+    else
+    {
+        printf("\nParent sleeping for 10 seconds.\n");
+        printf("Run: ps -el | grep q4\n");
+        sleep(10);          // Child becomes Zombie
+
+        wait(NULL);         // Remove Zombie
+        printf("Zombie removed successfully.\n");
+    }
 
     return 0;
 }
