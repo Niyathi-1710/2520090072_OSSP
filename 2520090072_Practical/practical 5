@@ -1,0 +1,90 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/wait.h>
+
+int main()
+{
+    int fd[2];
+    char buffer[100];
+
+    // ---------------- PART 1 ----------------
+    // Producer - Consumer using Anonymous Pipe
+
+    pipe(fd);
+
+    if (fork() == 0)
+    {
+        // Child -> Consumer
+        close(fd[1]);      // Close write end
+
+        read(fd[0], buffer, sizeof(buffer));
+        printf("Consumer received: %s\n", buffer);
+
+        close(fd[0]);
+        exit(0);
+    }
+    else
+    {
+        // Parent -> Producer
+        close(fd[0]);      // Close read end
+
+        char msg[] = "Operating Systems Lab";
+        write(fd[1], msg, strlen(msg) + 1);
+
+        close(fd[1]);
+        wait(NULL);
+    }
+
+    printf("\nProducer-Consumer communication completed.\n");
+
+    // ---------------- PART 2 ----------------
+    // Execute: ls -l | grep ".c"
+
+    int pipefd[2];
+    pipe(pipefd);
+
+    pid_t pid1 = fork();
+
+    if (pid1 == 0)
+    {
+        // First child executes ls -l
+        close(pipefd[0]);
+
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+
+        execlp("ls", "ls", "-l", NULL);
+
+        perror("execlp");
+        exit(1);
+    }
+
+    pid_t pid2 = fork();
+
+    if (pid2 == 0)
+    {
+        // Second child executes grep ".c"
+        close(pipefd[1]);
+
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+
+        execlp("grep", "grep", ".c", NULL);
+
+        perror("execlp");
+        exit(1);
+    }
+
+    // Parent
+    close(pipefd[0]);
+    close(pipefd[1]);
+
+    wait(NULL);
+    wait(NULL);
+
+    printf("\nCommand executed successfully.\n");
+
+    return 0;
+}
