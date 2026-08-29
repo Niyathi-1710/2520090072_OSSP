@@ -1,0 +1,75 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct Node {
+    char vehicle[50];
+    struct Node *next;
+} Node;
+
+int main() {
+    int n, i;
+    Node *head = NULL, *temp, *newNode;
+
+    /* Allocate buffer dynamically */
+    printf("Enter number of vehicles: ");
+    scanf("%d", &n);
+
+    char *buffer = malloc(100);
+
+    if (buffer == NULL) {
+        printf("Memory allocation failed!\n");
+        return 1;
+    }
+
+    /* Prevent buffer overflow */
+    printf("Enter lane name: ");
+    scanf("%99s", buffer);
+    printf("Lane: %s\n", buffer);
+
+    /* Resize buffer */
+    buffer = realloc(buffer, 200);
+    printf("Buffer resized successfully.\n");
+
+    /* Create linked list */
+    printf("\nEnter vehicle names:\n");
+
+    for (i = 0; i < n; i++) {
+        newNode = malloc(sizeof(Node));
+
+        if (newNode == NULL) {
+            printf("Allocation failed!\n");
+            free(buffer);
+            return 1;
+        }
+
+        scanf("%49s", newNode->vehicle);
+
+        newNode->next = head;
+        head = newNode;
+    }
+
+    /* Display linked list */
+    printf("\nVehicle Queue:\n");
+    temp = head;
+
+    while (temp != NULL) {
+        printf("%s -> ", temp->vehicle);
+        temp = temp->next;
+    }
+    printf("NULL\n");
+
+    /* Release linked-list memory */
+    while (head != NULL) {
+        temp = head;
+        head = head->next;
+        free(temp);
+    }
+
+    /* Release buffer */
+    free(buffer);
+
+    printf("\nAll memory released successfully.\n");
+
+    return 0;
+}
