@@ -1,0 +1,45 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX 50
+
+typedef struct {
+    char value[50];
+} Token;
+
+int main() {
+    char input[200];
+    Token tokens[MAX];
+    int count = 0;
+
+    printf("Enter command: ");
+    fgets(input, sizeof(input), stdin);
+
+    /* Split input into tokens */
+    char *p = strtok(input, " \t\n");
+
+    while (p != NULL && count < MAX) {
+        strcpy(tokens[count].value, p);
+        count++;
+        p = strtok(NULL, " \t\n");
+    }
+
+    /* Validate and display tokens */
+    printf("\n--- Token Stream ---\n");
+
+    for (int i = 0; i < count; i++) {
+        if (strlen(tokens[i].value) > 0)
+            printf("Token %d: [%s]\n", i + 1, tokens[i].value);
+    }
+
+    printf("\nTotal tokens: %d\n", count);
+
+    /* Debugging output */
+    printf("\nParsing successful!\n");
+
+    free(NULL);   // No dynamic memory used
+
+    return 0;
+}
