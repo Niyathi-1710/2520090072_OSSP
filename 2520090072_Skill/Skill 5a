@@ -1,0 +1,41 @@
+#include <stdio.h>
+#include <string.h>
+
+int main() {
+    char input[] = "'Hello $USER, welcome to Linux!'";
+    char result[100];
+    int i, j = 0;
+
+    // 1. Apply single quotes
+    printf("Original: %s\n", input);
+
+    // 2. Preserve literal content
+    // 3. Ignore variable expansion
+    for (i = 1; input[i] != '\0' &&
+                input[i] != '\''; i++) {
+        result[j++] = input[i];
+    }
+    result[j] = '\0';
+
+    // 4. Store quoted string
+    printf("Parsed string: %s\n", result);
+
+    // 5. Validate parsing results
+    if (strcmp(result,
+        "Hello $USER, welcome to Linux!") == 0) {
+        printf("Parsing successful\n");
+    } else {
+        printf("Parsing failed\n");
+    }
+
+    // 6. Test edge cases
+    char empty[] = "''";
+    char spaces[] = "'Hello   World'";
+    char special[] = "'$HOME * & !'";
+
+    printf("Empty quotes: %s\n", empty);
+    printf("Spaces: %s\n", spaces);
+    printf("Special characters: %s\n", special);
+
+    return 0;
+}
