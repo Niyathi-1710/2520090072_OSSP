@@ -1,0 +1,139 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
+
+#define BUFFER_SIZE 4096
+
+// Low-level file copy
+void lowLevelCopy(char *source, char *destination)
+{
+    int src, dest;
+    char buffer[BUFFER_SIZE];
+    ssize_t bytesRead, bytesWritten;
+
+    src = open(source, O_RDONLY);
+
+    if (src == -1)
+    {
+        perror("Error opening source file");
+        return;
+    }
+
+    dest = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    if (dest == -1)
+    {
+        perror("Error opening destination file");
+        close(src);
+        return;
+    }
+
+    while ((bytesRead = read(src, buffer, BUFFER_SIZE)) > 0)
+    {
+        bytesWritten = write(dest, buffer, bytesRead);
+
+        if (bytesWritten != bytesRead)
+        {
+            perror("Error writing file");
+            close(src);
+            close(dest);
+            return;
+        }
+    }
+
+    // Demonstrating lseek()
+    lseek(src, 0, SEEK_SET);
+
+    close(src);
+    close(dest);
+}
+
+// Standard library file copy
+void standardCopy(char *source, char *destination)
+{
+    FILE *src, *dest;
+    char buffer[BUFFER_SIZE];
+    size_t bytesRead;
+
+    src = fopen(source, "rb");
+
+    if (src == NULL)
+    {
+        perror("Error opening source file");
+        return;
+    }
+
+    dest = fopen(destination, "wb");
+
+    if (dest == NULL)
+    {
+        perror("Error opening destination file");
+        fclose(src);
+        return;
+    }
+
+    while ((bytesRead = fread(buffer, 1, BUFFER_SIZE, src)) > 0)
+    {
+        fwrite(buffer, 1, bytesRead, dest);
+    }
+
+    fclose(src);
+    fclose(dest);
+}
+
+int main()
+{
+    char source[100];
+    char lowLevelDestination[100];
+    char standardDestination[100];
+
+    clock_t start, end;
+    double lowLevelTime, standardTime;
+
+    printf("Enter source file name: ");
+    scanf("%99s", source);
+
+    printf("Enter destination file for low-level copy: ");
+    scanf("%99s", lowLevelDestination);
+
+    printf("Enter destination file for standard copy: ");
+    scanf("%99s", standardDestination);
+
+    // Low-level copy
+    start = clock();
+
+    lowLevelCopy(source, lowLevelDestination);
+
+    end = clock();
+
+    lowLevelTime = (double)(end - start) / CLOCKS_PER_SEC;
+
+    printf("\nLow-level copy completed.\n");
+    printf("Time taken: %f seconds\n", lowLevelTime);
+
+    // Standard library copy
+    start = clock();
+
+    standardCopy(source, standardDestination);
+
+    end = clock();
+
+    standardTime = (double)(end - start) / CLOCKS_PER_SEC;
+
+    printf("\nStandard library copy completed.\n");
+    printf("Time taken: %f seconds\n", standardTime);
+
+    // Comparison
+    printf("\n--- PERFORMANCE COMPARISON ---\n");
+
+    if (lowLevelTime < standardTime)
+        printf("Low-level I/O was faster.\n");
+    else if (standardTime < lowLevelTime)
+        printf("Standard library I/O was faster.\n");
+    else
+        printf("Both methods took approximately the same time.\n");
+
+    return 0;
+}
