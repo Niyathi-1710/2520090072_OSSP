@@ -1,0 +1,351 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <string.h>
+
+#define SIZE (10 * 1024 * 1024)
+
+/*
+ * Global array.
+ *
+ * It is large enough to make the
+ * Copy-on-Write behavior easier to observe.
+ */
+char data[SIZE];
+
+
+/* -----------------------------------------
+   Function to display memory information
+   ----------------------------------------- */
+
+void show_memory(const char *process_name)
+{
+    char line[256];
+
+    FILE *file = fopen("/proc/self/status", "r");
+
+    if (file == NULL)
+    {
+        perror("fopen");
+        return;
+    }
+
+    printf("\n[%s - PID %d]\n", process_name, getpid());
+
+    while (fgets(line, sizeof(line), file))
+    {
+        if (strncmp(line, "VmSize:", 7) == 0 ||
+            strncmp(line, "VmRSS:", 6) == 0)
+        {
+            printf("%s", line);
+        }
+    }
+
+    fclose(file);
+}
+
+
+int main()
+{
+    printf("============================================\n");
+    printf("        COPY-ON-WRITE DEMONSTRATION\n");
+    printf("============================================\n");
+
+    printf("\nParent PID: %d\n", getpid());
+
+    /*
+     * Touch the memory so that the pages
+     * are actually allocated.
+     */
+    memset(data, 'A', sizeof(data));
+
+    printf("\nMemory initialized in parent.\n");
+
+    show_memory("PARENT - BEFORE fork()");
+
+
+    /* -----------------------------------------
+       CREATE CHILD
+       ----------------------------------------- */
+
+    printf("\nCreating child process using fork()...\n");
+
+    pid_t pid = fork();
+
+    if (pid < 0)
+    {
+        perror("fork failed");
+        return 1;
+    }
+
+
+    /* -----------------------------------------
+       CHILD PROCESS
+       ----------------------------------------- */
+
+    if (pid == 0)
+    {
+        printf("\n============================================\n");
+        printf("             CHILD PROCESS\n");
+        printf("============================================\n");
+
+        printf("Child PID: %d\n", getpid());
+
+        /*
+         * At this point, parent and child
+         * initially share the same physical
+         * memory pages using Copy-on-Write.
+         */
+
+        show_memory("CHILD - AFTER fork(), BEFORE modification");
+
+        printf("\nChild is modifying the shared memory...\n");
+
+        /*
+         * Modify every page.
+         *
+         * This causes Copy-on-Write.
+         */
+        for (size_t i = 0; i < sizeof(data); i += 4096)
+        {
+            data[i] = 'B';
+        }
+
+        printf("Child modification completed.\n");
+
+        show_memory("CHILD - AFTER modification");
+
+        printf("\nChild data[0] = %c\n", data[0]);
+
+        printf("Child exiting...\n");
+
+        exit(0);
+    }
+
+
+    /* -----------------------------------------
+       PARENT PROCESS
+       ----------------------------------------- */
+
+    else
+    {
+        int status;
+
+        printf("\n============================================\n");
+        printf("             PARENT PROCESS\n");
+        printf("============================================\n");
+
+        printf("Parent PID: %d\n", getpid());
+        printf("Child PID : %d\n", pid);
+
+        /*
+         * Parent waits for child.
+         */
+        if (waitpid(pid, &status, 0) == -1)
+        {
+            perror("waitpid failed");
+            return 1;
+        }
+
+        printf("\nChild has completed.\n");
+
+        show_memory("PARENT - AFTER child modification");
+
+        /*
+         * Parent's copy remains unchanged.
+         */
+        printf("\nParent data[0] = %c\n", data[0]);
+
+        if (WIFEXITED(status))
+        {
+            printf(
+                "Child exit status: %d\n",
+                WEXITSTATUS(status)
+            );
+        }
+    }
+
+
+    printf("\n============================================\n");
+    printf("       COPY-ON-WRITE TEST COMPLETED\n");
+    printf("============================================\n");
+
+    return 0;
+}#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <string.h>
+
+#define SIZE (10 * 1024 * 1024)
+
+/*
+ * Global array.
+ *
+ * It is large enough to make the
+ * Copy-on-Write behavior easier to observe.
+ */
+char data[SIZE];
+
+
+/* -----------------------------------------
+   Function to display memory information
+   ----------------------------------------- */
+
+void show_memory(const char *process_name)
+{
+    char line[256];
+
+    FILE *file = fopen("/proc/self/status", "r");
+
+    if (file == NULL)
+    {
+        perror("fopen");
+        return;
+    }
+
+    printf("\n[%s - PID %d]\n", process_name, getpid());
+
+    while (fgets(line, sizeof(line), file))
+    {
+        if (strncmp(line, "VmSize:", 7) == 0 ||
+            strncmp(line, "VmRSS:", 6) == 0)
+        {
+            printf("%s", line);
+        }
+    }
+
+    fclose(file);
+}
+
+
+int main()
+{
+    printf("============================================\n");
+    printf("        COPY-ON-WRITE DEMONSTRATION\n");
+    printf("============================================\n");
+
+    printf("\nParent PID: %d\n", getpid());
+
+    /*
+     * Touch the memory so that the pages
+     * are actually allocated.
+     */
+    memset(data, 'A', sizeof(data));
+
+    printf("\nMemory initialized in parent.\n");
+
+    show_memory("PARENT - BEFORE fork()");
+
+
+    /* -----------------------------------------
+       CREATE CHILD
+       ----------------------------------------- */
+
+    printf("\nCreating child process using fork()...\n");
+
+    pid_t pid = fork();
+
+    if (pid < 0)
+    {
+        perror("fork failed");
+        return 1;
+    }
+
+
+    /* -----------------------------------------
+       CHILD PROCESS
+       ----------------------------------------- */
+
+    if (pid == 0)
+    {
+        printf("\n============================================\n");
+        printf("             CHILD PROCESS\n");
+        printf("============================================\n");
+
+        printf("Child PID: %d\n", getpid());
+
+        /*
+         * At this point, parent and child
+         * initially share the same physical
+         * memory pages using Copy-on-Write.
+         */
+
+        show_memory("CHILD - AFTER fork(), BEFORE modification");
+
+        printf("\nChild is modifying the shared memory...\n");
+
+        /*
+         * Modify every page.
+         *
+         * This causes Copy-on-Write.
+         */
+        for (size_t i = 0; i < sizeof(data); i += 4096)
+        {
+            data[i] = 'B';
+        }
+
+        printf("Child modification completed.\n");
+
+        show_memory("CHILD - AFTER modification");
+
+        printf("\nChild data[0] = %c\n", data[0]);
+
+        printf("Child exiting...\n");
+
+        exit(0);
+    }
+
+
+    /* -----------------------------------------
+       PARENT PROCESS
+       ----------------------------------------- */
+
+    else
+    {
+        int status;
+
+        printf("\n============================================\n");
+        printf("             PARENT PROCESS\n");
+        printf("============================================\n");
+
+        printf("Parent PID: %d\n", getpid());
+        printf("Child PID : %d\n", pid);
+
+        /*
+         * Parent waits for child.
+         */
+        if (waitpid(pid, &status, 0) == -1)
+        {
+            perror("waitpid failed");
+            return 1;
+        }
+
+        printf("\nChild has completed.\n");
+
+        show_memory("PARENT - AFTER child modification");
+
+        /*
+         * Parent's copy remains unchanged.
+         */
+        printf("\nParent data[0] = %c\n", data[0]);
+
+        if (WIFEXITED(status))
+        {
+            printf(
+                "Child exit status: %d\n",
+                WEXITSTATUS(status)
+            );
+        }
+    }
+
+
+    printf("\n============================================\n");
+    printf("       COPY-ON-WRITE TEST COMPLETED\n");
+    printf("============================================\n");
+
+    return 0;
+}
