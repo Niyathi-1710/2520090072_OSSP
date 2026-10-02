@@ -1,0 +1,124 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_INPUT 500
+
+/*
+ * Check whether a character is a special shell character.
+ */
+int is_special(char c)
+{
+    return (c == ' '  ||
+            c == '\t' ||
+            c == '$'  ||
+            c == '&'  ||
+            c == '|'  ||
+            c == ';'  ||
+            c == '<'  ||
+            c == '>'  ||
+            c == '('  ||
+            c == ')'  ||
+            c == '*'  ||
+            c == '?'  ||
+            c == '\\' ||
+            c == '"'  ||
+            c == '\'');
+}
+
+/*
+ * Process escape sequences.
+ */
+void process_escapes(const char *input, char *output)
+{
+    int i = 0;
+    int j = 0;
+
+    while (input[i] != '\0')
+    {
+        /*
+         * If a backslash is found, escape the
+         * following character.
+         */
+        if (input[i] == '\\')
+        {
+            i++;
+
+            if (input[i] != '\0')
+            {
+                /*
+                 * Preserve the character after
+                 * the backslash.
+                 */
+                output[j++] = input[i++];
+            }
+            else
+            {
+                /*
+                 * Preserve a trailing backslash.
+                 */
+                output[j++] = '\\';
+            }
+        }
+        else
+        {
+            output[j++] = input[i++];
+        }
+    }
+
+    output[j] = '\0';
+}
+
+/*
+ * Display how the input was interpreted.
+ */
+void validate_output(const char *input, const char *output)
+{
+    printf("\nOriginal input : %s\n", input);
+    printf("Parsed output  : %s\n", output);
+
+    printf("Characters     : ");
+
+    for (int i = 0; output[i] != '\0'; i++)
+    {
+        printf("[%c]", output[i]);
+    }
+
+    printf("\n");
+}
+
+int main()
+{
+    char input[MAX_INPUT];
+    char output[MAX_INPUT];
+
+    printf("=============================================\n");
+    printf("       ESCAPE SEQUENCE PARSER\n");
+    printf("=============================================\n");
+
+    printf("\nEnter a command/string containing escape sequences:\n");
+    printf("Example: hello\\ world\\ \\$100\\ \\&\\&\\ test\n\n");
+
+    printf("> ");
+
+    if (fgets(input, sizeof(input), stdin) == NULL)
+    {
+        printf("Error reading input.\n");
+        return 1;
+    }
+
+    /*
+     * Remove newline added by fgets().
+     */
+    input[strcspn(input, "\n")] = '\0';
+
+    process_escapes(input, output);
+
+    validate_output(input, output);
+
+    printf("\n=============================================\n");
+    printf("Escape processing completed successfully.\n");
+    printf("=============================================\n");
+
+    return 0;
+}
