@@ -1,0 +1,87 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+int main()
+{
+    pid_t pid;
+    int status;
+
+    printf("========================================\n");
+    printf(" Process Synchronization Using waitpid()\n");
+    printf("========================================\n");
+
+    printf("\nParent Process Started\n");
+    printf("Parent PID: %d\n", getpid());
+
+    /* Create child process */
+    pid = fork();
+
+    if (pid < 0)
+    {
+        perror("fork failed");
+        return 1;
+    }
+
+    /* Child process */
+    else if (pid == 0)
+    {
+        printf("\nChild Process Started\n");
+        printf("Child PID: %d\n", getpid());
+        printf("Parent PID: %d\n", getppid());
+
+        printf("\nChild: Performing some work...\n");
+
+        /* Simulate work */
+        for (int i = 1; i <= 5; i++)
+        {
+            printf("Child: Step %d completed\n", i);
+            sleep(1);
+        }
+
+        printf("\nChild: Work completed.\n");
+        printf("Child: Exiting with status 0.\n");
+
+        exit(0);
+    }
+
+    /* Parent process */
+    else
+    {
+        printf("\nParent: Child created successfully.\n");
+        printf("Parent: Child PID = %d\n", pid);
+
+        printf("Parent: Waiting for child to finish...\n");
+
+        /*
+         * Wait specifically for the child process.
+         */
+        if (waitpid(pid, &status, 0) == -1)
+        {
+            perror("waitpid failed");
+            return 1;
+        }
+
+        printf("\nParent: Child process has finished.\n");
+
+        /* Check how the child terminated */
+        if (WIFEXITED(status))
+        {
+            printf("Parent: Child exited normally.\n");
+            printf("Parent: Child exit status = %d\n",
+                   WEXITSTATUS(status));
+        }
+        else if (WIFSIGNALED(status))
+        {
+            printf("Parent: Child was terminated by signal %d\n",
+                   WTERMSIG(status));
+        }
+
+        printf("\nParent: Continuing execution...\n");
+        printf("Parent: Process completed.\n");
+    }
+
+    return 0;
+}
