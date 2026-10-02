@@ -1,0 +1,104 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <time.h>
+
+#define NUM_THREADS 4
+#define INCREMENTS 100000
+
+/* Shared counter */
+int counter = 0;
+
+/* Mutex */
+pthread_mutex_t lock;
+
+/* Thread function */
+void *increment_counter(void *arg)
+{
+    for (int i = 0; i < INCREMENTS; i++)
+    {
+        /* Lock before accessing shared variable */
+        pthread_mutex_lock(&lock);
+
+        counter++;
+
+        /* Unlock after modifying shared variable */
+        pthread_mutex_unlock(&lock);
+    }
+
+    return NULL;
+}
+
+int main()
+{
+    pthread_t threads[NUM_THREADS];
+
+    struct timespec start, end;
+
+    /* Initialize mutex */
+    if (pthread_mutex_init(&lock, NULL) != 0)
+    {
+        printf("Mutex initialization failed\n");
+        return 1;
+    }
+
+    printf("=====================================\n");
+    printf("   Multithreaded Counter - Mutex\n");
+    printf("=====================================\n");
+
+    printf("Number of threads       : %d\n", NUM_THREADS);
+    printf("Increments per thread   : %d\n",
+           INCREMENTS);
+
+    /* Start timer */
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    /* Create threads */
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        if (pthread_create(&threads[i],
+                           NULL,
+                           increment_counter,
+                           NULL) != 0)
+        {
+            perror("pthread_create");
+            return 1;
+        }
+    }
+
+    /* Wait for all threads */
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    /* Stop timer */
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    double time_taken =
+        (end.tv_sec - start.tv_sec) +
+        (end.tv_nsec - start.tv_nsec) / 1e9;
+
+    int expected = NUM_THREADS * INCREMENTS;
+
+    printf("\nExpected counter value : %d\n", expected);
+    printf("Actual counter value   : %d\n", counter);
+
+    printf("Execution time         : %.6f seconds\n",
+           time_taken);
+
+    if (counter == expected)
+    {
+        printf("\nResult: Correct!\n");
+        printf("Race condition prevented using mutex.\n");
+    }
+    else
+    {
+        printf("\nResult: Incorrect!\n");
+    }
+
+    /* Destroy mutex */
+    pthread_mutex_destroy(&lock);
+
+    return 0;
+}
