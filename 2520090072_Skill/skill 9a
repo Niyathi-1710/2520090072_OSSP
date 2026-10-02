@@ -1,0 +1,151 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <limits.h>
+
+#define MAX_INPUT 500
+
+int main() {
+    char input[MAX_INPUT];
+    char current_dir[PATH_MAX];
+    char previous_dir[PATH_MAX];
+
+    // Store the starting directory
+    if (getcwd(current_dir, sizeof(current_dir)) == NULL) {
+        perror("getcwd");
+        return 1;
+    }
+
+    strcpy(previous_dir, current_dir);
+
+    printf("====================================\n");
+    printf("       DIRECTORY NAVIGATION\n");
+    printf("====================================\n");
+
+    printf("Type 'help' for commands.\n");
+
+    while (1) {
+
+        // Display current directory
+        if (getcwd(current_dir, sizeof(current_dir)) != NULL) {
+            printf("\n[%s]$ ", current_dir);
+        } else {
+            printf("\n[unknown]$ ");
+        }
+
+        fflush(stdout);
+
+        // Read input
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            break;
+        }
+
+        // Remove newline
+        input[strcspn(input, "\n")] = '\0';
+
+        // Ignore empty input
+        if (strlen(input) == 0) {
+            continue;
+        }
+
+        // Exit command
+        if (strcmp(input, "exit") == 0) {
+            printf("Exiting...\n");
+            break;
+        }
+
+        // Help command
+        if (strcmp(input, "help") == 0) {
+            printf("\nAvailable commands:\n");
+            printf("cd <path>  - Change directory\n");
+            printf("cd ..      - Move to parent directory\n");
+            printf("cd -       - Return to previous directory\n");
+            printf("pwd        - Display current directory\n");
+            printf("help       - Display help\n");
+            printf("exit       - Exit program\n");
+            continue;
+        }
+
+        // pwd command
+        if (strcmp(input, "pwd") == 0) {
+
+            if (getcwd(current_dir, sizeof(current_dir)) != NULL) {
+                printf("Current directory: %s\n", current_dir);
+            } else {
+                perror("getcwd");
+            }
+
+            continue;
+        }
+
+        // Check for cd command
+        if (strncmp(input, "cd", 2) == 0 &&
+            (input[2] == '\0' || input[2] == ' ')) {
+
+            char path[MAX_INPUT];
+
+            // Get path after "cd"
+            if (input[2] == '\0') {
+                // cd without argument -> HOME
+                char *home = getenv("HOME");
+
+                if (home == NULL) {
+                    printf("cd: HOME variable not set\n");
+                    continue;
+                }
+
+                strcpy(path, home);
+            }
+            else {
+                // Skip "cd "
+                strcpy(path, input + 3);
+            }
+
+            // Handle cd -
+            if (strcmp(path, "-") == 0) {
+
+                if (chdir(previous_dir) != 0) {
+                    perror("cd");
+                    continue;
+                }
+
+                printf("Changed to: %s\n", previous_dir);
+
+            }
+            else {
+
+                // Save current directory before changing
+                char old_dir[PATH_MAX];
+
+                if (getcwd(old_dir, sizeof(old_dir)) == NULL) {
+                    perror("getcwd");
+                    continue;
+                }
+
+                // Validate and change directory
+                if (chdir(path) != 0) {
+                    printf("cd: cannot access '%s': ", path);
+                    perror("");
+                    continue;
+                }
+
+                // Update previous directory
+                strcpy(previous_dir, old_dir);
+
+                // Display new directory
+                if (getcwd(current_dir, sizeof(current_dir)) != NULL) {
+                    printf("Changed to: %s\n", current_dir);
+                }
+            }
+
+            continue;
+        }
+
+        // Invalid command
+        printf("Unknown command: %s\n", input);
+        printf("Type 'help' to see available commands.\n");
+    }
+
+    return 0;
+}
