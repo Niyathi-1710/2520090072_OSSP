@@ -1,0 +1,202 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <string.h>
+
+#define SOURCE_FILE "source.txt"
+#define READWRITE_FILE "readwrite_copy.txt"
+#define MMAP_FILE "mmap_copy.txt"
+
+/* Function to calculate time difference */
+double get_time(struct timespec start, struct timespec end)
+{
+    return (end.tv_sec - start.tv_sec) +
+           (end.tv_nsec - start.tv_nsec) / 1e9;
+}
+
+/* Traditional read/write method */
+void copy_using_read_write()
+{
+    int src, dest;
+    char buffer[4096];
+    ssize_t bytes_read;
+    struct timespec start, end;
+
+    src = open(SOURCE_FILE, O_RDONLY);
+
+    if (src == -1)
+    {
+        perror("Error opening source file");
+        exit(1);
+    }
+
+    dest = open(READWRITE_FILE,
+                O_WRONLY | O_CREAT | O_TRUNC,
+                0644);
+
+    if (dest == -1)
+    {
+        perror("Error creating destination file");
+        close(src);
+        exit(1);
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    while ((bytes_read = read(src, buffer, sizeof(buffer))) > 0)
+    {
+        if (write(dest, buffer, bytes_read) != bytes_read)
+        {
+            perror("Error writing file");
+            close(src);
+            close(dest);
+            exit(1);
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    close(src);
+    close(dest);
+
+    printf("\nTraditional read/write time: %.9f seconds\n",
+           get_time(start, end));
+}
+
+/* Memory-mapped method */
+void copy_using_mmap()
+{
+    int src, dest;
+    struct stat file_stat;
+    char *src_data;
+    char *dest_data;
+    size_t file_size;
+
+    struct timespec start, end;
+
+    src = open(SOURCE_FILE, O_RDONLY);
+
+    if (src == -1)
+    {
+        perror("Error opening source file");
+        exit(1);
+    }
+
+    if (fstat(src, &file_stat) == -1)
+    {
+        perror("fstat");
+        close(src);
+        exit(1);
+    }
+
+    file_size = file_stat.st_size;
+
+    dest = open(MMAP_FILE,
+                O_RDWR | O_CREAT | O_TRUNC,
+                0644);
+
+    if (dest == -1)
+    {
+        perror("Error creating destination file");
+        close(src);
+        exit(1);
+    }
+
+    /* Set destination file size */
+    if (ftruncate(dest, file_size) == -1)
+    {
+        perror("ftruncate");
+        close(src);
+        close(dest);
+        exit(1);
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    /* Map source file into memory */
+    src_data = mmap(NULL,
+                    file_size,
+                    PROT_READ,
+                    MAP_PRIVATE,
+                    src,
+                    0);
+
+    if (src_data == MAP_FAILED)
+    {
+        perror("mmap source");
+        close(src);
+        close(dest);
+        exit(1);
+    }
+
+    /* Map destination file into memory */
+    dest_data = mmap(NULL,
+                     file_size,
+                     PROT_READ | PROT_WRITE,
+                     MAP_SHARED,
+                     dest,
+                     0);
+
+    if (dest_data == MAP_FAILED)
+    {
+        perror("mmap destination");
+        munmap(src_data, file_size);
+        close(src);
+        close(dest);
+        exit(1);
+    }
+
+    /* Copy data through memory */
+    memcpy(dest_data, src_data, file_size);
+
+    /* Make sure changes are written to disk */
+    msync(dest_data, file_size, MS_SYNC);
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    munmap(src_data, file_size);
+    munmap(dest_data, file_size);
+
+    close(src);
+    close(dest);
+
+    printf("Memory-mapped I/O time:      %.9f seconds\n",
+           get_time(start, end));
+}
+
+int main()
+{
+    struct stat st;
+
+    printf("=====================================\n");
+    printf("   mmap() vs read()/write() Test\n");
+    printf("=====================================\n");
+
+    /* Check whether source file exists */
+    if (stat(SOURCE_FILE, &st) == -1)
+    {
+        printf("\nSource file '%s' not found.\n", SOURCE_FILE);
+        printf("Please create it first.\n");
+        return 1;
+    }
+
+    printf("\nFile size: %ld bytes\n", (long)st.st_size);
+
+    printf("\n--- Traditional I/O ---\n");
+    copy_using_read_write();
+
+    printf("\n--- Memory-Mapped I/O ---\n");
+    copy_using_mmap();
+
+    printf("\nFiles created:\n");
+    printf("1. %s\n", READWRITE_FILE);
+    printf("2. %s\n", MMAP_FILE);
+
+    printf("\nComparison completed successfully!\n");
+
+    return 0;
+}
