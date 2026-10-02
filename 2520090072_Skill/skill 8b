@@ -1,0 +1,170 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#define MAX_INPUT 200
+#define MAX_ARGS 20
+
+/* Function prototypes */
+void shell_cd(char *args[]);
+void shell_pwd(char *args[]);
+void shell_echo(char *args[]);
+void shell_help(char *args[]);
+void shell_exit(char *args[]);
+
+/* Structure for dispatch table */
+typedef struct {
+    char *name;
+    void (*function)(char *args[]);
+} Builtin;
+
+/* Dispatch table */
+Builtin builtins[] = {
+    {"cd", shell_cd},
+    {"pwd", shell_pwd},
+    {"echo", shell_echo},
+    {"help", shell_help},
+    {"exit", shell_exit}
+};
+
+int builtin_count = sizeof(builtins) / sizeof(builtins[0]);
+
+/* cd command */
+void shell_cd(char *args[]) {
+
+    if (args[1] == NULL) {
+        printf("cd: missing argument\n");
+        return;
+    }
+
+    if (chdir(args[1]) != 0) {
+        perror("cd");
+    }
+}
+
+/* pwd command */
+void shell_pwd(char *args[]) {
+
+    char current_directory[1024];
+
+    if (getcwd(current_directory,
+               sizeof(current_directory)) != NULL) {
+
+        printf("%s\n", current_directory);
+
+    } else {
+        perror("pwd");
+    }
+}
+
+/* echo command */
+void shell_echo(char *args[]) {
+
+    int i = 1;
+
+    while (args[i] != NULL) {
+        printf("%s", args[i]);
+
+        if (args[i + 1] != NULL)
+            printf(" ");
+
+        i++;
+    }
+
+    printf("\n");
+}
+
+/* help command */
+void shell_help(char *args[]) {
+
+    printf("\nBuilt-in Commands:\n");
+    printf("------------------\n");
+    printf("cd    - Change directory\n");
+    printf("pwd   - Display current directory\n");
+    printf("echo  - Display text\n");
+    printf("help  - Display available commands\n");
+    printf("exit  - Exit the shell\n\n");
+}
+
+/* exit command */
+void shell_exit(char *args[]) {
+
+    printf("Exiting mini shell...\n");
+    exit(0);
+}
+
+/* Find command in dispatch table */
+int find_builtin(char *command) {
+
+    for (int i = 0; i < builtin_count; i++) {
+
+        if (strcmp(command, builtins[i].name) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+/* Main function */
+int main() {
+
+    char input[MAX_INPUT];
+    char *args[MAX_ARGS];
+
+    printf("=====================================\n");
+    printf("       MINI BUILT-IN SHELL\n");
+    printf("=====================================\n");
+
+    printf("Type 'help' to see available commands.\n");
+
+    while (1) {
+
+        printf("\nmini-shell$ ");
+        fflush(stdout);
+
+        /* Read command */
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            break;
+        }
+
+        /* Remove newline */
+        input[strcspn(input, "\n")] = '\0';
+
+        /* Ignore empty input */
+        if (strlen(input) == 0) {
+            continue;
+        }
+
+        /* Tokenize input */
+        int argc = 0;
+
+        char *token = strtok(input, " ");
+
+        while (token != NULL && argc < MAX_ARGS - 1) {
+
+            args[argc++] = token;
+            token = strtok(NULL, " ");
+        }
+
+        args[argc] = NULL;
+
+        /* Find command in dispatch table */
+        int index = find_builtin(args[0]);
+
+        if (index != -1) {
+
+            /* Execute built-in command */
+            builtins[index].function(args);
+
+        } else {
+
+            /* Invalid command */
+            printf("mini-shell: '%s': command not found\n",
+                   args[0]);
+        }
+    }
+
+    return 0;
+}
