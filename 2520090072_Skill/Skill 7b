@@ -1,0 +1,99 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+#define MAX_PATH 4096
+#define MAX_COMMAND 100
+
+int main() {
+    char *path;
+    char path_copy[MAX_PATH];
+    char command[MAX_COMMAND];
+
+    // Step 1: Retrieve PATH environment variable
+    path = getenv("PATH");
+
+    if (path == NULL) {
+        printf("PATH environment variable not found.\n");
+        return 1;
+    }
+
+    printf("PATH Variable:\n%s\n\n", path);
+
+    // Step 2: Get command from user
+    printf("Enter command to locate: ");
+    fgets(command, sizeof(command), stdin);
+
+    // Remove newline
+    command[strcspn(command, "\n")] = '\0';
+
+    if (strlen(command) == 0) {
+        printf("No command entered.\n");
+        return 1;
+    }
+
+    /*
+     * If the user enters a path directly,
+     * for example ./program or /bin/ls
+     */
+    if (strchr(command, '/') != NULL) {
+        if (access(command, F_OK) == 0 &&
+            access(command, X_OK) == 0) {
+
+            printf("Executable found: %s\n", command);
+        } else {
+            printf("Command not found or not executable: %s\n", command);
+        }
+
+        return 0;
+    }
+
+    // Copy PATH because strtok modifies the string
+    strncpy(path_copy, path, sizeof(path_copy) - 1);
+    path_copy[sizeof(path_copy) - 1] = '\0';
+
+    // Step 3: Parse PATH directories
+    char *directory = strtok(path_copy, ":");
+
+    while (directory != NULL) {
+
+        char full_path[MAX_PATH];
+
+        // Step 4: Build complete path
+        snprintf(full_path, sizeof(full_path),
+                 "%s/%s", directory, command);
+
+        // Step 5: Check whether file exists
+        if (access(full_path, F_OK) == 0) {
+
+            // Step 6: Verify execute permission
+            if (access(full_path, X_OK) == 0) {
+
+                printf("Executable found: %s\n", full_path);
+
+                // Display file information
+                struct stat file_info;
+
+                if (stat(full_path, &file_info) == 0) {
+                    printf("File size: %ld bytes\n",
+                           (long)file_info.st_size);
+
+                    printf("Inode number: %ld\n",
+                           (long)file_info.st_ino);
+                }
+
+                return 0;
+            }
+        }
+
+        // Move to next PATH directory
+        directory = strtok(NULL, ":");
+    }
+
+    // Step 7: Handle missing command
+    printf("Command '%s' not found in PATH.\n", command);
+
+    return 0;
+}
