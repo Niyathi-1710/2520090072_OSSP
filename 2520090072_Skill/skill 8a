@@ -1,0 +1,123 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_INPUT 500
+#define MAX_OUTPUT 1000
+
+// Check whether a character can be part of a variable name
+int is_valid_variable_char(char ch) {
+    return isalnum(ch) || ch == '_';
+}
+
+// Expand variables in the input string
+void expand_variables(char *input, char *output) {
+    int i = 0;
+    int j = 0;
+
+    while (input[i] != '\0' && j < MAX_OUTPUT - 1) {
+
+        // Detect $
+        if (input[i] == '$') {
+
+            char variable[100];
+            int k = 0;
+
+            i++;  // Move past $
+
+            // Handle ${VARIABLE} format
+            if (input[i] == '{') {
+                i++;  // Move past {
+
+                while (input[i] != '\0' &&
+                       input[i] != '}' &&
+                       k < sizeof(variable) - 1) {
+
+                    variable[k++] = input[i++];
+                }
+
+                variable[k] = '\0';
+
+                // Skip closing }
+                if (input[i] == '}') {
+                    i++;
+                }
+            }
+
+            // Handle $VARIABLE format
+            else {
+                while (input[i] != '\0' &&
+                       is_valid_variable_char(input[i]) &&
+                       k < sizeof(variable) - 1) {
+
+                    variable[k++] = input[i++];
+                }
+
+                variable[k] = '\0';
+            }
+
+            // If no variable name was found, keep $
+            if (k == 0) {
+                output[j++] = '$';
+                continue;
+            }
+
+            // Retrieve variable value
+            char *value = getenv(variable);
+
+            if (value != NULL) {
+
+                // Copy value into output
+                while (*value != '\0' &&
+                       j < MAX_OUTPUT - 1) {
+
+                    output[j++] = *value;
+                    value++;
+                }
+
+            } else {
+
+                // Undefined variable
+                printf("Warning: Variable '%s' is undefined.\n",
+                       variable);
+
+                // Replace undefined variable with empty string
+            }
+        }
+
+        else {
+            // Normal character
+            output[j++] = input[i++];
+        }
+    }
+
+    output[j] = '\0';
+}
+
+int main() {
+
+    char input[MAX_INPUT];
+    char output[MAX_OUTPUT];
+
+    printf("====================================\n");
+    printf("   VARIABLE EXPANSION PROGRAM\n");
+    printf("====================================\n");
+
+    printf("\nEnter a string containing variables:\n");
+    printf("> ");
+
+    fgets(input, sizeof(input), stdin);
+
+    // Remove newline
+    input[strcspn(input, "\n")] = '\0';
+
+    printf("\nOriginal Input:\n%s\n", input);
+
+    // Perform variable expansion
+    expand_variables(input, output);
+
+    printf("\nExpanded Output:\n%s\n", output);
+
+    return 0;
+}
