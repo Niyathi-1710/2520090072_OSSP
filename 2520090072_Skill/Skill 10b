@@ -1,0 +1,183 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#define MAX_NAME 100
+#define MAX_VALUE 500
+
+/* Validate environment variable name */
+int validate_name(char *name) {
+    int i;
+
+    if (name == NULL || name[0] == '\0')
+        return 0;
+
+    /* First character must be letter or underscore */
+    if (!(isalpha(name[0]) || name[0] == '_'))
+        return 0;
+
+    /* Remaining characters can be letters, digits or underscore */
+    for (i = 1; name[i] != '\0'; i++) {
+        if (!(isalnum(name[i]) || name[i] == '_'))
+            return 0;
+    }
+
+    return 1;
+}
+
+/* Parse and process export command */
+void process_export(char *command) {
+    char *argument;
+    char *equals;
+    char name[MAX_NAME];
+    char value[MAX_VALUE];
+
+    /* Skip "export" */
+    argument = command + 6;
+
+    while (*argument == ' ')
+        argument++;
+
+    /* Check if variable is provided */
+    if (*argument == '\0') {
+        printf("Usage: export NAME=VALUE\n");
+        return;
+    }
+
+    /* Find '=' */
+    equals = strchr(argument, '=');
+
+    if (equals == NULL) {
+        printf("Error: Invalid export syntax.\n");
+        printf("Use: export NAME=VALUE\n");
+        return;
+    }
+
+    /* Extract variable name */
+    int name_length = equals - argument;
+
+    if (name_length >= MAX_NAME) {
+        printf("Error: Variable name is too long.\n");
+        return;
+    }
+
+    strncpy(name, argument, name_length);
+    name[name_length] = '\0';
+
+    /* Validate variable name */
+    if (!validate_name(name)) {
+        printf("Error: Invalid variable name '%s'\n", name);
+        printf("Variable names must start with a letter or '_'.\n");
+        printf("They can contain letters, digits and '_'.\n");
+        return;
+    }
+
+    /* Extract value */
+    strncpy(value, equals + 1, MAX_VALUE - 1);
+    value[MAX_VALUE - 1] = '\0';
+
+    /* Check whether variable already exists */
+    if (getenv(name) != NULL) {
+        printf("Variable '%s' already exists.\n", name);
+        printf("Updating its value...\n");
+    } else {
+        printf("Creating new variable '%s'...\n", name);
+    }
+
+    /* Update environment variable */
+    if (setenv(name, value, 1) != 0) {
+        perror("setenv failed");
+        return;
+    }
+
+    printf("Export successful!\n");
+    printf("%s=%s\n", name, getenv(name));
+}
+
+/* Test whether variable reaches child process */
+void test_child_process(char *name) {
+    pid_t pid;
+    char *value;
+
+    printf("\n--- Testing Child Process ---\n");
+
+    pid = fork();
+
+    if (pid < 0) {
+        perror("fork failed");
+        return;
+    }
+
+    if (pid == 0) {
+        /* Child process */
+        value = getenv(name);
+
+        if (value != NULL) {
+            printf("Child process received:\n");
+            printf("%s=%s\n", name, value);
+        } else {
+            printf("Child process could not find variable.\n");
+        }
+
+        exit(0);
+    }
+
+    else {
+        /* Parent process */
+        wait(NULL);
+        printf("Child process completed.\n");
+    }
+}
+
+int main() {
+    char command[700];
+    char test_name[MAX_NAME];
+
+    printf("============================================\n");
+    printf("        MINI EXPORT COMMAND\n");
+    printf("============================================\n");
+
+    printf("\nExamples:\n");
+    printf("  export NAME=Niyathi\n");
+    printf("  export COLLEGE=KLU\n");
+    printf("  export YEAR=2\n");
+    printf("  export _TEST=Hello\n");
+
+    printf("\nEnter export command: ");
+    fgets(command, sizeof(command), stdin);
+
+    /* Remove newline */
+    command[strcspn(command, "\n")] = '\0';
+
+    /* Check command */
+    if (strncmp(command, "export", 6) != 0 ||
+        (command[6] != ' ' && command[6] != '\0')) {
+
+        printf("Error: Command must start with 'export'.\n");
+        return 1;
+    }
+
+    /* Parse export command */
+    process_export(command);
+
+    /* Ask variable name for child-process test */
+    printf("\nEnter variable name to test in child process: ");
+    scanf("%99s", test_name);
+
+    if (!validate_name(test_name)) {
+        printf("Invalid variable name.\n");
+        return 1;
+    }
+
+    /* Test environment inheritance */
+    test_child_process(test_name);
+
+    printf("\n============================================\n");
+    printf("             TEST COMPLETED\n");
+    printf("============================================\n");
+
+    return 0;
+}
