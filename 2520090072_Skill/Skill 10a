@@ -1,0 +1,76 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+#define PATH_SIZE 1024
+
+int main() {
+    char current_path[PATH_SIZE];
+    char choice;
+    FILE *state_file;
+
+    printf("============================================\n");
+    printf("   CURRENT DIRECTORY & EXIT MANAGEMENT\n");
+    printf("============================================\n");
+
+    /* CO1: Retrieve Current Directory */
+    if (getcwd(current_path, sizeof(current_path)) == NULL) {
+        perror("getcwd failed");
+        return 1;
+    }
+
+    /* CO2: Display Path */
+    printf("\nCurrent Working Directory:\n");
+    printf("%s\n", current_path);
+
+    /* Save current state */
+    state_file = fopen("program_state.txt", "w");
+
+    if (state_file == NULL) {
+        perror("Error creating state file");
+        return 1;
+    }
+
+    fprintf(state_file, "Last Working Directory: %s\n", current_path);
+    fprintf(state_file, "Program Status: Running\n");
+
+    printf("\nState saved successfully.\n");
+
+    /* CO3: Process Exit Request */
+    printf("\nDo you want to exit the program? (y/n): ");
+    scanf(" %c", &choice);
+
+    if (choice == 'y' || choice == 'Y') {
+
+        /* Update state before exit */
+        fprintf(state_file, "Program Status: Exiting\n");
+
+        /* CO4: Cleanup Resources */
+        fclose(state_file);
+
+        printf("\nCleaning up resources...\n");
+        printf("State saved successfully.\n");
+
+        /* CO5: Save State */
+        printf("Program state stored in: program_state.txt\n");
+
+        /* CO6: Verify Correct Behavior */
+        printf("\n============================================\n");
+        printf("Program exited successfully.\n");
+        printf("Current directory was: %s\n", current_path);
+        printf("============================================\n");
+
+        return 0;
+    }
+
+    else {
+        fprintf(state_file, "Program Status: Still Running\n");
+        fclose(state_file);
+
+        printf("\nProgram will continue running.\n");
+        printf("Resources cleaned up successfully.\n");
+
+        return 0;
+    }
+}
