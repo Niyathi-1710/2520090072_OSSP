@@ -1,0 +1,256 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#define MAX_COMMANDS 5
+#define MAX_LENGTH 100
+
+/* Structure to store one command */
+struct Command {
+    char command[MAX_LENGTH];
+};
+
+/* Structure to store the complete pipeline */
+struct Pipeline {
+    struct Command commands[MAX_COMMANDS];
+    int count;
+};
+
+/* Store a command in the pipeline */
+void store_command(struct Pipeline *pipeline, char command[]) {
+    if (pipeline->count >= MAX_COMMANDS) {
+        printf("Pipeline is full. Cannot add more commands.\n");
+        return;
+    }
+
+    strcpy(pipeline->commands[pipeline->count].command, command);
+    pipeline->count++;
+
+    printf("Command added successfully.\n");
+}
+
+/* Display the pipeline layout */
+void display_pipeline(struct Pipeline *pipeline) {
+    int i;
+
+    if (pipeline->count == 0) {
+        printf("Pipeline is empty.\n");
+        return;
+    }
+
+    printf("\n----- Pipeline Layout -----\n");
+
+    for (i = 0; i < pipeline->count; i++) {
+        printf("[%d] %s", i + 1, pipeline->commands[i].command);
+
+        if (i < pipeline->count - 1) {
+            printf("  |  ");
+        }
+    }
+
+    printf("\n---------------------------\n");
+}
+
+/* Validate the pipeline */
+void validate_pipeline(struct Pipeline *pipeline) {
+    int i;
+
+    if (pipeline->count == 0) {
+        printf("Pipeline is empty. Not valid.\n");
+        return;
+    }
+
+    if (pipeline->count > MAX_COMMANDS) {
+        printf("Pipeline has too many commands.\n");
+        return;
+    }
+
+    for (i = 0; i < pipeline->count; i++) {
+        if (strlen(pipeline->commands[i].command) == 0) {
+            printf("Pipeline contains an empty command.\n");
+            return;
+        }
+    }
+
+    printf("Pipeline layout is valid.\n");
+}
+
+/* Convert a command string into arguments */
+void create_arguments(char command[], char *arguments[]) {
+    int i = 0;
+
+    arguments[i] = strtok(command, " \n");
+
+    while (arguments[i] != NULL && i < 9) {
+        i++;
+        arguments[i] = strtok(NULL, " \n");
+    }
+
+    arguments[i] = NULL;
+}
+
+/* Execute the pipeline */
+void execute_pipeline(struct Pipeline *pipeline) {
+    int pipes[MAX_COMMANDS - 1][2];
+    pid_t processes[MAX_COMMANDS];
+
+    int i;
+    int j;
+
+    if (pipeline->count == 0) {
+        printf("No commands to execute.\n");
+        return;
+    }
+
+    /* Create pipes */
+    for (i = 0; i < pipeline->count - 1; i++) {
+        if (pipe(pipes[i]) == -1) {
+            perror("pipe");
+            return;
+        }
+    }
+
+    /* Create processes */
+    for (i = 0; i < pipeline->count; i++) {
+
+        processes[i] = fork();
+
+        if (processes[i] == -1) {
+            perror("fork");
+            return;
+        }
+
+        if (processes[i] == 0) {
+
+            char command_copy[MAX_LENGTH];
+            char *arguments[10];
+
+            strcpy(command_copy,
+                   pipeline->commands[i].command);
+
+            create_arguments(command_copy, arguments);
+
+            /* Connect input from previous command */
+            if (i > 0) {
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+            }
+
+            /* Connect output to next command */
+            if (i < pipeline->count - 1) {
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
+
+            /* Close all pipe file descriptors */
+            for (j = 0; j < pipeline->count - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            /* Execute command */
+            execvp(arguments[0], arguments);
+
+            perror("execvp");
+            exit(1);
+        }
+    }
+
+    /* Parent closes all pipes */
+    for (i = 0; i < pipeline->count - 1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    /* Wait for all processes */
+    for (i = 0; i < pipeline->count; i++) {
+        waitpid(processes[i], NULL, 0);
+    }
+
+    printf("\nPipeline execution completed.\n");
+}
+
+int main() {
+
+    struct Pipeline pipeline;
+    int choice;
+    char command[MAX_LENGTH];
+
+    pipeline.count = 0;
+
+    while (1) {
+
+        printf("\n========== PIPELINE MENU ==========\n");
+        printf("1. Store Command\n");
+        printf("2. Display Pipeline\n");
+        printf("3. Validate Pipeline\n");
+        printf("4. Execute Pipeline\n");
+        printf("5. Clear Pipeline\n");
+        printf("6. Exit\n");
+        printf("Enter your choice: ");
+
+        scanf("%d", &choice);
+        getchar();
+
+        switch (choice) {
+
+            case 1:
+
+                printf("Enter command: ");
+
+                fgets(command, MAX_LENGTH, stdin);
+
+                command[strcspn(command, "\n")] = '\0';
+
+                if (strlen(command) == 0) {
+                    printf("Command cannot be empty.\n");
+                } else {
+                    store_command(&pipeline, command);
+                }
+
+                break;
+
+            case 2:
+
+                display_pipeline(&pipeline);
+
+                break;
+
+            case 3:
+
+                validate_pipeline(&pipeline);
+
+                break;
+
+            case 4:
+
+                validate_pipeline(&pipeline);
+
+                if (pipeline.count > 0) {
+                    execute_pipeline(&pipeline);
+                }
+
+                break;
+
+            case 5:
+
+                pipeline.count = 0;
+
+                printf("Pipeline cleared successfully.\n");
+
+                break;
+
+            case 6:
+
+                printf("Exiting program...\n");
+
+                return 0;
+
+            default:
+
+                printf("Invalid choice.\n");
+        }
+    }
+
+    return 0;
+}
