@@ -1,0 +1,132 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX_HISTORY 5
+#define MAX_COMMAND 100
+
+char history[MAX_HISTORY][MAX_COMMAND];
+int history_count = 0;
+
+/* Store a command in the history buffer */
+void store_command(char command[]) {
+    int i;
+
+    /* If buffer is full, remove the oldest command */
+    if (history_count == MAX_HISTORY) {
+        for (i = 0; i < MAX_HISTORY - 1; i++) {
+            strcpy(history[i], history[i + 1]);
+        }
+        history_count--;
+    }
+
+    strcpy(history[history_count], command);
+    history_count++;
+
+    printf("Command stored successfully.\n");
+}
+
+/* Display all commands */
+void display_history() {
+    int i;
+
+    if (history_count == 0) {
+        printf("\nHistory is empty.\n");
+        return;
+    }
+
+    printf("\n----- Command History -----\n");
+
+    for (i = 0; i < history_count; i++) {
+        printf("%d. %s\n", i + 1, history[i]);
+    }
+
+    printf("---------------------------\n");
+}
+
+/* Retrieve a particular command */
+void retrieve_command(int number) {
+    if (number < 1 || number > history_count) {
+        printf("Invalid history number.\n");
+        return;
+    }
+
+    printf("Command %d: %s\n", number, history[number - 1]);
+}
+
+/* Check whether the history buffer is consistent */
+void validate_history() {
+    int i;
+
+    if (history_count < 0 || history_count > MAX_HISTORY) {
+        printf("History buffer is NOT consistent.\n");
+        return;
+    }
+
+    for (i = 0; i < history_count; i++) {
+        if (strlen(history[i]) == 0) {
+            printf("History buffer is NOT consistent.\n");
+            return;
+        }
+    }
+
+    printf("History buffer is consistent.\n");
+}
+
+int main() {
+    int choice;
+    int number;
+    char command[MAX_COMMAND];
+
+    while (1) {
+        printf("\n===== COMMAND HISTORY =====\n");
+        printf("1. Store Command\n");
+        printf("2. Display History\n");
+        printf("3. Retrieve Command\n");
+        printf("4. Validate History\n");
+        printf("5. Exit\n");
+        printf("Enter your choice: ");
+
+        scanf("%d", &choice);
+        getchar();  // Remove newline left by scanf
+
+        switch (choice) {
+
+            case 1:
+                printf("Enter command: ");
+                fgets(command, MAX_COMMAND, stdin);
+
+                /* Remove newline from command */
+                command[strcspn(command, "\n")] = '\0';
+
+                if (strlen(command) == 0) {
+                    printf("Command cannot be empty.\n");
+                } else {
+                    store_command(command);
+                }
+                break;
+
+            case 2:
+                display_history();
+                break;
+
+            case 3:
+                printf("Enter history number to retrieve: ");
+                scanf("%d", &number);
+                retrieve_command(number);
+                break;
+
+            case 4:
+                validate_history();
+                break;
+
+            case 5:
+                printf("Exiting program...\n");
+                return 0;
+
+            default:
+                printf("Invalid choice. Please try again.\n");
+        }
+    }
+
+    return 0;
+}
