@@ -1,0 +1,133 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+
+#define MAX_INPUT 200
+
+int main()
+{
+    char input[MAX_INPUT];
+    char command[100];
+    char filename[100];
+
+    int input_file;
+    int original_stdin;
+    pid_t pid;
+
+    printf("Enter command with input redirection: ");
+    fgets(input, sizeof(input), stdin);
+
+    /* Remove newline */
+    input[strcspn(input, "\n")] = '\0';
+
+    /*
+     * Parse input.
+     * Example:
+     * sort < input.txt
+     */
+    if (sscanf(input, "%s < %s", command, filename) != 2)
+    {
+        printf("Invalid input format.\n");
+        printf("Use: command < filename\n");
+        return 1;
+    }
+
+    printf("Command: %s\n", command);
+    printf("Input file: %s\n", filename);
+
+    /*
+     * Open the input file.
+     */
+    input_file = open(filename, O_RDONLY);
+
+    if (input_file == -1)
+    {
+        perror("Error opening input file");
+        printf("The input file does not exist or cannot be opened.\n");
+        return 1;
+    }
+
+    printf("Input file opened successfully.\n");
+
+    /*
+     * Save the original standard input.
+     */
+    original_stdin = dup(STDIN_FILENO);
+
+    if (original_stdin == -1)
+    {
+        perror("dup");
+        close(input_file);
+        return 1;
+    }
+
+    /*
+     * Redirect standard input to the file.
+     */
+    if (dup2(input_file, STDIN_FILENO) == -1)
+    {
+        perror("dup2");
+        close(input_file);
+        close(original_stdin);
+        return 1;
+    }
+
+    /*
+     * The original file descriptor is no longer needed.
+     */
+    close(input_file);
+
+    /*
+     * Create child process.
+     */
+    pid = fork();
+
+    if (pid < 0)
+    {
+        perror("fork");
+        return 1;
+    }
+
+    /*
+     * Child process.
+     */
+    if (pid == 0)
+    {
+        /*
+         * Execute command.
+         * The command receives input from the file.
+         */
+        execlp(command, command, NULL);
+
+        /*
+         * If execlp fails.
+         */
+        perror("execlp");
+        exit(1);
+    }
+
+    /*
+     * Parent waits for child.
+     */
+    wait(NULL);
+
+    /*
+     * Restore original standard input.
+     */
+    if (dup2(original_stdin, STDIN_FILENO) == -1)
+    {
+        perror("Restoring stdin");
+        close(original_stdin);
+        return 1;
+    }
+
+    close(original_stdin);
+
+    printf("\nStandard input restored successfully.\n");
+    printf("Program completed successfully.\n");
+
+    return 0;
+}
