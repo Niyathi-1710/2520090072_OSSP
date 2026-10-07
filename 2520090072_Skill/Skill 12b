@@ -1,0 +1,123 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#define MAX_COMMANDS 4
+
+int main()
+{
+    /*
+     * Commands:
+     * ls -1 | sort | wc -l
+     *
+     * 3 commands need 2 pipes.
+     */
+
+    char *commands[MAX_COMMANDS][4] = {
+        {"ls", "-1", NULL, NULL},
+        {"sort", NULL, NULL, NULL},
+        {"wc", "-l", NULL, NULL}
+    };
+
+    int number_of_commands = 3;
+    int pipes[MAX_COMMANDS - 1][2];
+
+    pid_t process_id;
+    int i;
+    int j;
+
+    /* Create multiple pipes */
+    for (i = 0; i < number_of_commands - 1; i++)
+    {
+        if (pipe(pipes[i]) == -1)
+        {
+            perror("pipe");
+            return 1;
+        }
+
+        printf("Pipe %d created successfully.\n", i + 1);
+    }
+
+    /* Create a process for each command */
+    for (i = 0; i < number_of_commands; i++)
+    {
+        process_id = fork();
+
+        if (process_id < 0)
+        {
+            perror("fork");
+            return 1;
+        }
+
+        /* Child process */
+        if (process_id == 0)
+        {
+            /*
+             * If this is NOT the first command,
+             * take input from the previous pipe.
+             */
+            if (i > 0)
+            {
+                if (dup2(pipes[i - 1][0], STDIN_FILENO) == -1)
+                {
+                    perror("dup2 input");
+                    exit(1);
+                }
+            }
+
+            /*
+             * If this is NOT the last command,
+             * send output to the next pipe.
+             */
+            if (i < number_of_commands - 1)
+            {
+                if (dup2(pipes[i][1], STDOUT_FILENO) == -1)
+                {
+                    perror("dup2 output");
+                    exit(1);
+                }
+            }
+
+            /*
+             * Close all pipe descriptors in child.
+             * They are no longer needed after dup2().
+             */
+            for (j = 0; j < number_of_commands - 1; j++)
+            {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            /* Execute the command */
+            execvp(commands[i][0], commands[i]);
+
+            /* If execvp fails */
+            perror("execvp");
+            exit(1);
+        }
+    }
+
+    /*
+     * Parent process:
+     * Close all pipe descriptors.
+     */
+    for (i = 0; i < number_of_commands - 1; i++)
+    {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    /*
+     * Wait for all child processes.
+     */
+    for (i = 0; i < number_of_commands; i++)
+    {
+        wait(NULL);
+    }
+
+    printf("\nAll processes completed successfully.\n");
+    printf("Long pipeline execution finished.\n");
+
+    return 0;
+}
